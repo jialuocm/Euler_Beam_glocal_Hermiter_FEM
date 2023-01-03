@@ -19,44 +19,44 @@
 % By Ju Liu, CAM student, 2009 Dec. 24th.
 % =========================================================================
 
-function poly = Hermiteg_Basis(i, der, x, xa, xb)
+function poly = Hermiteg_Basis(ii, der, xx, xa, xb)
 
 h = xb - xa;
 
-if i == 1
+if ii == 1
     if der == 0
-        poly = -(x-xb)^2*(-h + 2*(xa-x))./h^3;
+        poly = -(xx-xb)^2*(-h + 2*(xa-xx))./h^3;
     elseif der == 1
         poly = 0;
     elseif der == 2
-        poly = (-2*(-h+2*(xa-x))+8*(x-xb))./h^3;
+        poly = (-2*(-h+2*(xa-xx))+8*(xx-xb))./h^3;
     end
 end
-if i == 2
+if ii == 2
     if der == 0
-        poly = (x - xa)*(x - xb)^2./h^2;
+        poly = (xx - xa)*(xx - xb)^2./h^2;
     elseif der == 1
         poly = 0;
     elseif der == 2
-        poly = 2*(3*x - 2*xb - xa)./h^2;
+        poly = 2*(3*xx - 2*xb - xa)./h^2;
     end
 end
-if i == 3
+if ii == 3
     if der == 0
-        poly = (x-xa)^2*(h + 2*(xb-x))./h^3;
+        poly = (xx-xa)^2*(h + 2*(xb-xx))./h^3;
     elseif der == 1
         poly = 0;
     elseif der == 2
-        poly = (2*(h+2*(xb-x))-8*(x-xa))./h^3;
+        poly = (2*(h+2*(xb-xx))-8*(xx-xa))./h^3;
     end
 end
-if i == 4
+if ii == 4
     if der == 0
-        poly = (x - xa )^2 * (x - xb)./h^2;
+        poly = (xx - xa )^2 * (xx - xb)./h^2;
     elseif der == 1
         poly = 0;
     elseif der == 2
-        poly =  2*(3*x - 2*xa - xb)./h^2;
+        poly =  2*(3*xx - 2*xa - xb)./h^2;
     end
 end
 
