@@ -24,11 +24,11 @@ hh = xb - xa;
 switch ii
     case  1
         if der == 0
-            poly = -(xx-xb)^2*(-hh + 2*(xa-xx))./hh^3;
+            poly = -(xx - xb)^2*(-hh + 2*(xa - xx))./hh^3;
         elseif der == 1
             poly = (2*(xb - xx)^2)/hh^3 - ((2*xb - 2*xx)*(hh - 2*xa + 2*xx))/hh^3;
         elseif der == 2
-            poly = (-2*(-hh+2*(xa-xx))+8*(xx-xb))./hh^3;
+            poly = (-2*(-hh + 2*(xa - xx))+8*(xx - xb))./hh^3;
         end
     case 2
         if der == 0
@@ -41,11 +41,11 @@ switch ii
 
     case   3
         if der == 0
-            poly = (xx-xa)^2*(hh + 2*(xb-xx))./hh^3;
+            poly = (xx - xa)^2*(hh + 2*(xb - xx))./hh^3;
         elseif der == 1
             poly = - (2*(xa - xx)^2)/hh^3 - ((2*xa - 2*xx)*(hh + 2*xb - 2*xx))/hh^3;
         elseif der == 2
-            poly = (2*(hh+2*(xb-xx))-8*(xx-xa))./hh^3;
+            poly = (2*(hh + 2*(xb - xx))-8*(xx - xa))./hh^3;
         end
 
     case 4
