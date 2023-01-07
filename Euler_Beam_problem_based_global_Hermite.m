@@ -40,7 +40,7 @@ M_fx = @(x) 1/2.*f_q(x).*x.^2;
 
 %-------------------------------------------------------------------
 
-nElem_x = 20 : 5 : 70;
+nElem_x = 2 : 2 : 30;
 
 %nElem_x = 20;
 
@@ -241,25 +241,25 @@ for num = 1 : cn
             
         end
     end
-    sqrt(error_l2)
-    sqrt(error_H2);
+    error_l2 = sqrt(error_l2);
+    error_H2 = sqrt(error_H2);
     
-    error_l2_x(num,1)  = log(sqrt(error_l2));
-    error_h2_x(num,1)  = log(sqrt(error_H2));
-    hh_lg(num) = log(hh_x(num))./LL;
+    error_l2_x(num,1)  = log(error_l2);
+    error_h2_x(num,1)  = log(error_H2);
+    hh_lg(num) = log(hh_x(num) / LL); % normlized the mesh length size 
     % hh_lg(num) = log(hh_x(num));
-    
-    
-    dx_h = zeros( 2,1);
-    dy_e = zeros( 2,1);
+      
+    dx_hh  = zeros( 2,1);
+    dy_l2e = zeros( 2,1);
+    dy_h2e = zeros( 2,1);
     if (num >= 2)
-        dx_h = [hh_lg(num);hh_lg(num-1)];
+        dx_hh = [hh_lg(num);hh_lg(num-1)];
         
         dy_l2e = [error_l2_x(num);error_l2_x(num-1)];
         dy_h2e = [error_h2_x(num);error_h2_x(num-1)];
         
-        slop_l2(num) = (dy_l2e(2) - dy_l2e(1)) / (dx_h(2)-dx_h(1));
-        slop_h2(num) = (dy_h2e(2) - dy_h2e(1)) / (dx_h(2)-dx_h(1));
+        slop_l2(num) = (dy_l2e(2) - dy_l2e(1)) / (dx_hh(2)-dx_hh(1));
+        slop_h2(num) = (dy_h2e(2) - dy_h2e(1)) / (dx_hh(2)-dx_hh(1));
         
     else
         
@@ -281,26 +281,31 @@ for num = 1 : cn
 end
 
 
+figure
+yyaxis left
+error_h_l2 = plot(hh_lg,error_l2_x,'--rO','LineWidth',2);
+ylim([-18 -2]);
+
+legend(error_h_l2,'L_2 error convergence analysis');
+xlabel('log ||hh||/L ');
+ylabel('log ||e||_{l2} ');
+exportgraphics(gca,['error_u_l2' '.jpg']);
+
+hold on;
 % figure
-% error_h = plot(hh_lg,error_l2_x,'--rO','LineWidth',2);
-% 
-% legend(error_h,'L_2 error convergence analysis');
-% xlabel('log ||hh|| ');
-% ylabel('log ||e||_l2 ');
-% exportgraphics(gca,['error_u_l2' '.jpg']);
-% 
-% figure
-% error_h = plot(hh_lg,error_h2_x,'--rO','LineWidth',2);
-% 
-% legend(error_h,'H_2error convergence analysis');
-% xlabel('log ||hh|| ');
-% ylabel('log ||e||_H2 ');
-% exportgraphics(gca,['error_u_h2' '.jpg']);
-% 
-% T = table(hh_x,error_l2_x,error_h2_x,slop_l2,slop_h2,...
-%     'variableNames',{'hh_mesh','error_l2','error_H2',...
-%     'L2 convergence rate','H2 convergence rate'});
-% writetable(T);
-% T
+yyaxis right
+error_h_H2 = plot(hh_lg,error_h2_x,'--b*','LineWidth',2);
+ylim([-18 -2]);
+
+legend('L_2 error convergence rate','H_2error convergence rate');
+xlabel('log ||hh||/L ');
+ylabel('log ||e||_{H2} ');
+exportgraphics(gca,['error_u_h2' '.jpg']);
+
+T = table(hh_x,error_l2_x,error_h2_x,slop_l2,slop_h2,...
+    'variableNames',{'hh_mesh','error_l2','error_H2',...
+    'l2 convergence rate','H2 convergence rate'});
+writetable(T);
+T
 
 % END
