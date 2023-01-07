@@ -198,18 +198,14 @@ for num = 1 : cn
     
     for ee = 1: nElem
         u_ele = zeros(nLocBas,1);
-        x_ele = zeros(nLocBas,1);
+        x_ele = zeros(n_en,1);
         
-        for aa = 1 : nLocBas
-            
+        for aa = 1 : nLocBas           
             u_ele(aa) = Uh(IEN(aa,ee));
-            
-            if mod(IEN(aa,ee)+1,2)==0 % check if node number is even               
-                x_ele(aa) = x_coor((IEN(aa,ee)+1)/2);
-            else              
-                x_ele(aa) = x_coor(IEN(aa,ee)/2);
-            end
-            
+        end
+
+        for aa = 1 : n_en
+                x_ele(aa) = x_coor(ee+aa-1) ; 
         end
         
         [qp, wq] = Gauss(nqp, x_ele(1), x_ele(end));
