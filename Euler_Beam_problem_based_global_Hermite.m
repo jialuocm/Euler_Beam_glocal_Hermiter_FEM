@@ -94,14 +94,17 @@ for num = 1 : cn
         %allocate zero element stiffness matrix and element load vector
         % k_ele = zeros(d_en, d_en);
         % f_ele = zeros(d_en,1);
-        x_ele = zeros(d_en,1);
-        for aa = 1 : d_en
-            if mod(IEN(aa,ee),2) == 0 % check if node number is even
-                x_ele(aa) = x_coor(IEN(aa,ee)/2);
-            else
-                x_ele(aa) = x_coor((IEN(aa,ee)+1)/2);
-            end
+        x_ele = zeros(n_en,1);
+        % New data structure: mapping from global x_coor to local element x_ele 
+        for aa = 1 : n_en
+%             if mod(IEN(aa,ee),2) == 0 % check if node number is even
+%                 x_ele(aa) = x_coor(IEN(aa,ee)/2);
+%             else
+%                 x_ele(aa) = x_coor((IEN(aa,ee)+1)/2);
+%             end
+                x_ele(aa) = x_coor(ee+aa-1) ; 
         end
+
         [qp, wq] = Gauss(nqp, x_ele(1), x_ele(end));
        
         for qua = 1 : nqp
@@ -186,12 +189,12 @@ for num = 1 : cn
     error_l2  = 0.0;
     error_H2  = 0.0;
     
-    j=1;
-    M_h = zeros(nElem*nqp,1);
+    jj=1;
+    M_h     = zeros(nElem*nqp,1);
     M_exact = zeros(nElem*nqp,1);
-    x_m = zeros(nElem*nqp,1);
-    x_b = zeros(nElem+1,1);
-    U_h_p = zeros(nElem*nqp,1);
+    x_m     = zeros(nElem*nqp,1);
+    x_b     = zeros(nElem+1,1);
+    U_h_p   = zeros(nElem*nqp,1);
     
     for ee = 1: nElem
         u_ele = zeros(nLocBas,1);
