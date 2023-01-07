@@ -8,11 +8,11 @@ EI = 2 ; % bend module stiffness
 
 omega_L = 0; % phsical length of beam
 omega_R = pi; % position length of beam
-L = omega_R - omega_L; %  phsical length of beam
+LL = omega_R - omega_L; %  phsical length of beam
 
 %q = @(x) x./((omega_R - omega_L))*(1-x/(omega_R - omega_L));
 %q = @(x) -48;    %constant distributive load
-q = @(x) sin(x);
+f_q = @(x) sin(x);
 g_f = @(x) 0;  %essential BC transverse displacement
 dg_f = @(x) 0; %essential BC derivative of disp slope;
 %h_f = @(x) 1;% Natual BC prescribed Moment
@@ -27,7 +27,7 @@ c3 = 1 - 0.5 * pi^2;
 c4 = pi^3 / 3 - pi;
 U_fx = @(x) (sin(x) + c1.*x.^3 / 6 + c3 .* x + c4)./EI;
 
-fai_fx = @(x) (1/6.*q(x).*x.^3 -  1/6.*q(x).*L.^3)./EI;
+fai_fx = @(x) (1/6.*f_q(x).*x.^3 -  1/6.*f_q(x).*LL.^3)./EI;
 
 U_f1x = @(x) (cos(x) + 0.5 * c1 * x.^2 + c3)./EI;
 
@@ -36,7 +36,7 @@ U_f2x = @(x) (-sin(x) + c1 .* x) ./ EI;
 
 U_f3x = @(x) (-cos(x) + c1)./EI;
 
-M_fx = @(x) 1/2.*q(x).*x.^2;
+M_fx = @(x) 1/2.*f_q(x).*x.^2;
 
 %-------------------------------------------------------------------
 
@@ -112,7 +112,7 @@ for num = 1 : cn
                 %calculate the global K matrix and force vector
                 AA = ID(IEN(aa,ee));
                 if( AA > 0 )
-                    F(AA) = F(AA) + wq (qua) * Na * q(qp(qua));
+                    F(AA) = F(AA) + wq (qua) * Na * f_q(qp(qua));
                     for bb = 1: nLocBas
                         BB = ID(IEN(bb,ee));
                         if (BB > 0)
@@ -247,7 +247,7 @@ for num = 1 : cn
     
     error_l2_x(num,1)  = log(sqrt(error_l2));
     error_h2_x(num,1)  = log(sqrt(error_H2));
-    hh_lg(num) = log(hh_x(num))./L;
+    hh_lg(num) = log(hh_x(num))./LL;
     % hh_lg(num) = log(hh_x(num));
     
     
