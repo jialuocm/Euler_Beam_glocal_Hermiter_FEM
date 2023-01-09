@@ -27,7 +27,7 @@ c3 = 1 - 0.5 * pi^2;
 c4 = pi^3 / 3 - pi;
 U_fx = @(x) (sin(x) + c1.*x.^3 / 6 + c3 .* x + c4)./EI;
 
-fai_fx = @(x) (1/6.*f_q(x).*x.^3 -  1/6.*f_q(x).*LL.^3)./EI;
+%fai_fx = @(x) (1/6.*f_q(x).*x.^3 -  1/6.*f_q(x).*LL.^3)./EI;
 
 U_f1x = @(x) (cos(x) + 0.5 * c1 * x.^2 + c3)./EI;
 
@@ -40,7 +40,7 @@ M_fx = @(x) 1/2.*f_q(x).*x.^2;
 
 %-------------------------------------------------------------------
 
-nElem_x = 2 : 2 : 30;
+nElem_x = 2 : 4 : 16;
 
 %nElem_x = 20;
 
@@ -88,7 +88,7 @@ for num = 1 : cn
     %allocate an empty stiffness matrix and load vector    
     K = sparse(nFunc, nFunc);
     F = zeros( nFunc, 1);
-    
+ %-------------------------------------------------------------------   
     %assembly the stiffness matrix and load vector
     for ee = 1 : nElem
         %allocate zero element stiffness matrix and element load vector
@@ -97,11 +97,6 @@ for num = 1 : cn
         x_ele = zeros(n_en,1);
         % New data structure: mapping from global x_coor to local element x_ele 
         for aa = 1 : n_en
-%             if mod(IEN(aa,ee),2) == 0 % check if node number is even
-%                 x_ele(aa) = x_coor(IEN(aa,ee)/2);
-%             else
-%                 x_ele(aa) = x_coor((IEN(aa,ee)+1)/2);
-%             end
                 x_ele(aa) = x_coor(ee+aa-1) ; 
         end
 
@@ -156,35 +151,37 @@ for num = 1 : cn
     %solve the stiffness matrix problem
     
     Uh = K \ F;
-    
+    %-------------------------------------------------------------------
+    % displacement distribution
     uh_od    = Uh(1:2:nFunc);
     fai_even = Uh(2:2:nFunc);
     
-    %  figure
-    %  uhp = plot(x_coor,uh_od,'--r*','linewidth',2);
-    %  hold on
-    %  u_exact = U_fx(x_coor);
-    %  up = plot(x_coor, u_exact,'b--','LineWidth',2);
-    %
-    %  legend([uhp,up],'uh FEM','u Exact');
-    %  xlabel('x coor');
-    %  ylabel('u');
-    %  hold off
-    %  exportgraphics(gca,['file uh' '.jpg']);
-    %
-    %
-    %  figure
-    %  faih_p = plot(x_coor,fai_even,'--r*','linewidth',2);
-    %
-    %  hold on
-    %  p_M_exact = plot(x_coor,fai_fx(x_coor),'b--','LineWidth',2);
-    %  legend([faih_p,p_M_exact],'\phi_h FEM','\phi_{Exact}');
-    %  xlabel('x coor');
-    %  ylabel('\phi ');
-    %  hold off
-    %  exportgraphics(gca,['file_fai' '.jpg']);
+     figure
+     uhp = plot(x_coor,uh_od,'--r*','linewidth',2);
+     hold on
+     u_exact = U_fx(x_coor);
+     up = plot(x_coor, u_exact,'b--','LineWidth',2);
     
+     legend([uhp,up],'uh FEM','u Exact');
+     xlabel('x coor');
+     ylabel('u');
+     hold off
+     exportgraphics(gca,['file uh' '.jpg']);
     
+    %------------------------------------------------------------------- 
+    % slope distribution
+    figure
+     faih_p = plot(x_coor,fai_even,'--r*','linewidth',2);
+    
+     hold on
+     p_M_exact = plot(x_coor,U_f1x(x_coor),'b--','LineWidth',2);
+     legend([faih_p,p_M_exact],'\phi_h FEM','\phi_{Exact}');
+     xlabel('x coor');
+     ylabel('\phi ');
+     hold off
+     exportgraphics(gca,['file_fai' '.jpg']);
+    
+    %------------------------------------------------------------------- 
     % error convergence analysis
     error_l2  = 0.0;
     error_H2  = 0.0;
@@ -247,7 +244,7 @@ for num = 1 : cn
     error_l2_x(num,1)  = log(error_l2);
     error_h2_x(num,1)  = log(error_H2);
     hh_lg(num) = log(hh_x(num) / LL); % normlized the mesh length size 
-    % hh_lg(num) = log(hh_x(num));
+
       
     dx_hh  = zeros( 2,1);
     dy_l2e = zeros( 2,1);
@@ -289,7 +286,7 @@ ylim([-18 -2]);
 legend(error_h_l2,'L_2 error convergence analysis');
 xlabel('log ||hh||/L ');
 ylabel('log ||e||_{l2} ');
-exportgraphics(gca,['error_u_l2' '.jpg']);
+% exportgraphics(gca,['error_u_l2' '.jpg']);
 
 hold on;
 % figure
@@ -300,7 +297,7 @@ ylim([-18 -2]);
 legend('L_2 error convergence rate','H_2error convergence rate');
 xlabel('log ||hh||/L ');
 ylabel('log ||e||_{H2} ');
-exportgraphics(gca,['error_u_h2' '.jpg']);
+exportgraphics(gca,['error_u_l2_h2' '.jpg']);
 
 T = table(hh_x,error_l2_x,error_h2_x,slop_l2,slop_h2,...
     'variableNames',{'hh_mesh','error_l2','error_H2',...
