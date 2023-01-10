@@ -4,17 +4,16 @@ clear all; clc; close all;
 pi  = atan(1) * 4;
 nqp = 10; %quadrature rule
 
-EI = 2 ; % bend module stiffness
-M  = 1 ; % Natual BC prescribed Moment
-Q  = -2 ; % Natual BC prescribed shear force
+EI = 1 ; % bend module stiffness
+M  = 3 ; % Natual BC prescribed Moment
+Q  = -12 ; % Natual BC prescribed shear force
 
 omega_L = 0; % phsical length of beam
 omega_R = pi; % position length of beam
 LL = omega_R - omega_L; %  phsical length of beam
 
-%q = @(x) x./((omega_R - omega_L))*(1-x/(omega_R - omega_L));
-%q = @(x) -48;    %constant distributive load
-f_q = @(x) sin(x);
+f_q = @(x) sin(x); %distribution body force
+
 u_g = @(x) 0;   %essential BC transverse displacement
 u_x_g = @(x) 0; %essential BC derivative of disp slope;
 
@@ -23,21 +22,20 @@ Q_f = @(x) Q / EI;% Natual BC prescribed shear force
 
 % exact solution
 
-
 c1 = Q + 1.0;
 c2 = M;
 c3 = 1.0 - 0.5 * (Q + 1.0) * pi^2 - M * pi ;
 c4 = (Q + 1.0) * pi^3 / 3 - pi + 0.5 * M * pi^2;
 U_fx = @(x) (sin(x) + c1.*x.^3 / 6 + 0.5 * c2.*x.^2 + c3.*x + c4)./EI; % displacements
 
-U_f1x = @(x) (cos(x) + 0.5 * c1 * x.^2 + c2 * x + c3)./EI;%slope
-U_f2x = @(x) (-sin(x) + c1 .* x + c2) ./ EI; 
-U_f3x = @(x) (-cos(x) + c1)./EI;
+U_d1x = @(x) (cos(x) + 0.5 * c1 * x.^2 + c2 * x + c3)./EI;%first derivative
+U_d2x = @(x) (-sin(x) + c1 .* x + c2) ./ EI;%second derivative
+U_d3x = @(x) (-cos(x) + c1)./EI;%third derivative
 
 %-------------------------------------------------------------------
 
-%nElem_x = 2 : 4 : 16;
-nElem_x = 2;
+nElem_x = 2 : 4 : 32;
+%nElem_x = 2;
 
 cn         = length(nElem_x);
 
@@ -78,12 +76,9 @@ for num = 1 : cn
     % assign the ID for the Dirichlet node to be -1.
     % the right of beam is fixed, transverse dis and slope equal = 0.
     ID(end-1:end) = -1;
-    ID
+   
     n_eq = nFunc - 2;   % Dirichlet nodes is known
-    T_IEN = table(IEN,'variableNames',{'IEN'});
-    writetable(T_IEN);
-    IEN
-
+ 
     %allocate an empty stiffness matrix and load vector
     %     K = sparse(nFunc, nFunc);
     %     F = zeros( nFunc, 1);
@@ -94,18 +89,16 @@ for num = 1 : cn
     %Assembly the stiffness matrix and load vector
     for ee = 1 : nElem
         %allocate zero element stiffness matrix and element load vector
-        % k_ele = zeros(d_en, d_en);
-        % f_ele = zeros(d_en,1);
         x_ele = zeros(n_en,1);
-        u_bc  = zeros(nLocBas,1);
+        u_ebc  = zeros(nLocBas,1);
 
         % New data structure: mapping local element information to global.
-        
+
         for aa = 1 : n_en
             x_ele(aa) = x_coor(ee+aa-1) ; % physical geometrical position;
         end
 
-        [qp, wq] = Gauss(nqp, x_ele(1), x_ele(end)); 
+        [qp, wq] = Gauss(nqp, x_ele(1), x_ele(end));
 
         for qua = 1 : nqp
 
@@ -130,13 +123,13 @@ for num = 1 : cn
                             % TO BE FILLED
                             Nb_2x = Hermiteg_Basis(bb, 2, qp(qua), x_ele(1), x_ele(end));
                             %obtain the Dirichlet node's physical coordinates
-                            x_p_u = x_coor(ee+1) ;
+                            x_g_u = x_coor(ee+1) ;
                             % Obtain the boundary data at this point
 
-                            % esstential BC 1: Node displacement; Node slope
-                            u_bc = [0; 0; u_g(x_p_u); u_x_g(x_p_u) ];
-                        
-                            F( AA ) = F( AA ) -  wq(qua) * EI * Na_2x * Nb_2x * u_bc(bb); % 
+                            % esstential BC: Node displacement; Node slope
+                            u_ebc = [0; 0; u_g(x_g_u); u_x_g(x_g_u) ];
+
+                            F( AA ) = F( AA ) -  wq(qua) * EI * Na_2x * Nb_2x * u_ebc(bb); 
 
                         end
                     end
@@ -150,18 +143,18 @@ for num = 1 : cn
             F(ID(IEN(1,ee))) =  F(ID(IEN(1,ee))) + Q_f(x_coor(ee));  % prescribed shear force
             F(ID(IEN(2,ee))) =  F(ID(IEN(2,ee))) - M_f(x_coor(ee));  % prescribed Moment force
         end
-        
+
     end
 
     %disp(K);disp(F);
     %solve the stiffness matrix problem
-
+  
     Uh = K \ F;
     % Append the displacement vector by the Dirichlet data
-    Uh = [ Uh; u_g(x_p_u); u_x_g(x_p_u) ];
+    Uh = [ Uh; u_g(x_g_u); u_x_g(x_g_u) ];
     %-------------------------------------------------------------------
     % displacement distribution
-    uh_od    = Uh(1:2:nFunc);
+    uh_od    = Uh(1:2:nFunc - 1);
     fai_even = Uh(2:2:nFunc);
 
     figure
@@ -182,7 +175,7 @@ for num = 1 : cn
     faih_p = plot(x_coor,fai_even,'--r*','linewidth',2);
 
     hold on
-    p_M_exact = plot(x_coor,U_f1x(x_coor),'b--','LineWidth',2);
+    p_M_exact = plot(x_coor,U_d1x(x_coor),'b--','LineWidth',2);
     legend([faih_p,p_M_exact],'\phi_h FEM','\phi_{Exact}');
     xlabel('x coor');
     ylabel('\phi ');
@@ -219,33 +212,23 @@ for num = 1 : cn
 
             U_h    = 0.0;
             u_dx2  = 0.0 ;
-            %m_dx2  = 0.0 ;
 
             for aa = 1 : nLocBas
 
                 U_h    = U_h   + u_ele(aa) * Hermiteg_Basis(aa,0,qp(qua),x_ele(1),x_ele(end));
                 u_dx2  = u_dx2 + u_ele(aa) * Hermiteg_Basis(aa,2,qp(qua),x_ele(1),x_ele(end));
-                %m_dx2  = m_dx2 + u_ele(aa) * Hermiteg_Basis(aa,2,x_ele(1),x_ele(1),x_ele(end));
 
             end
 
-            %x_m(j)   =  qp(qua);
-            %U_h_p(j) =  U_h;
-
             u_exact     = U_fx(qp(qua));
-            u_dx2_exact = U_f2x(qp(qua));
-
-            %x_b(j)   =  x_ele(1);
-            %M_h(j)   =  EI.* m_dx2;
-            %M_exact(j) = M_fx(x_ele(1));
-
-            %j = j+1;
+            u_dx2_exact = U_d2x(qp(qua));
 
             error_l2 = error_l2 + wq(qua) * (U_h - u_exact) * (U_h - u_exact);
             error_H2 = error_H2 + wq(qua) * (u_dx2 - u_dx2_exact) * (u_dx2 - u_dx2_exact);
 
         end
     end
+
     error_l2 = sqrt(error_l2);
     error_H2 = sqrt(error_H2);
 
@@ -271,17 +254,6 @@ for num = 1 : cn
         slop_l2(num) = 0;
         slop_h2(num) = 0;
     end
-
-    %  figure
-    %
-    %  p_M_h = plot(x_b,M_h,'--rO','LineWidth',2);
-    %  hold on
-    %  p_M_exact = plot(x_b,M_exact,'--b*','LineWidth',2);
-    %  legend([p_M_h ,p_M_exact],'M_h FEM','M_{Exact}');
-    %  xlabel('x coor');
-    %  ylabel('M )');
-    %  hold off
-    %  exportgraphics(gca,['file_M' num2str(num) '.jpg']);
 
 end
 
