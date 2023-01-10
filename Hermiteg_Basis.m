@@ -11,7 +11,7 @@
 %         if der == 2, return the 2nd derivative of the basis funciton.
 % xa,xb : the point we which to perform the evaluation.
 %
-% Output: the value of the basis function or the 1st  and 2nd derivatives of
+% Output: the value of the basis function or the 1st and 2nd derivatives of
 %         the basis function.
 % -------------------------------------------------------------------------
 % By Jia Luo, 2023 Jan. 5th.
@@ -22,7 +22,7 @@ function poly = Hermiteg_Basis(ii, der, xx, xa, xb)
 hh = xb - xa;
 
 switch ii
-    case  1
+    case 1
         if der == 0
             poly = -(xx - xb)^2*(-hh + 2*(xa - xx))./hh^3;
         elseif der == 1
@@ -30,6 +30,7 @@ switch ii
         elseif der == 2
             poly = (-2*(-hh + 2*(xa - xx))+8*(xx - xb))./hh^3;
         end
+        
     case 2
         if der == 0
             poly = (xx - xa)*(xx - xb)^2./hh^2;
@@ -39,7 +40,7 @@ switch ii
             poly = 2*(3*xx - 2*xb - xa)./hh^2;
         end
 
-    case   3
+    case 3
         if der == 0
             poly = (xx - xa)^2*(hh + 2*(xb - xx))./hh^3;
         elseif der == 1
@@ -56,6 +57,7 @@ switch ii
         elseif der == 2
             poly =  2*(3*xx - 2*xa - xb)./hh^2;
         end
+        
     otherwise
         disp('Hermite polynomial is considered out of the normal range ');
 
