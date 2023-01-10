@@ -15,35 +15,29 @@ LL = omega_R - omega_L; %  phsical length of beam
 %q = @(x) x./((omega_R - omega_L))*(1-x/(omega_R - omega_L));
 %q = @(x) -48;    %constant distributive load
 f_q = @(x) sin(x);
-g_f = @(x) 0;  %essential BC transverse displacement
-dg_f = @(x) 0; %essential BC derivative of disp slope;
+u_g = @(x) 0;   %essential BC transverse displacement
+u_x_g = @(x) 0; %essential BC derivative of disp slope;
 
-h_f = @(x) M / EI;% Natual BC prescribed Moment
-dh_f = @(x) Q / EI;% Natual BC prescribed shear force
+M_f = @(x) M / EI;% Natual BC prescribed Moment
+Q_f = @(x) Q / EI;% Natual BC prescribed shear force
 
 % exact solution
 
-%U_fx = @(x) (q(x)/24.*x.^4 - 1/6.*q(x).*L.^3.*x + 1/8.*q(x).*L.^4)./EI;
-c1 = 1.0;
-c2 = 0.0;
-c3 = 1 - 0.5 * pi^2;
-c4 = pi^3 / 3 - pi;
-U_fx = @(x) (sin(x) + c1.*x.^3 / 6 + c3 .* x + c4)./EI;
 
-%fai_fx = @(x) (1/6.*f_q(x).*x.^3 -  1/6.*f_q(x).*LL.^3)./EI;
-U_f1x = @(x) (cos(x) + 0.5 * c1 * x.^2 + c3)./EI;
+c1 = Q + 1.0;
+c2 = M;
+c3 = 1.0 - 0.5 * (Q + 1.0) * pi^2 - M * pi ;
+c4 = (Q + 1.0) * pi^3 / 3 - pi + 0.5 * M * pi^2;
+U_fx = @(x) (sin(x) + c1.*x.^3 / 6 + 0.5 * c2.*x.^2 + c3.*x + c4)./EI; % displacements
 
-%U_f2x = @(x) (1/2.*q(x).*x.^2)./EI;
-U_f2x = @(x) (-sin(x) + c1 .* x) ./ EI;
-
+U_f1x = @(x) (cos(x) + 0.5 * c1 * x.^2 + c2 * x + c3)./EI;%slope
+U_f2x = @(x) (-sin(x) + c1 .* x + c2) ./ EI; 
 U_f3x = @(x) (-cos(x) + c1)./EI;
-
-M_fx = @(x) 1/2.*f_q(x).*x.^2;
 
 %-------------------------------------------------------------------
 
-nElem_x = 2 : 4 : 16;
-%nElem_x = 20;
+%nElem_x = 2 : 4 : 16;
+nElem_x = 2;
 
 cn         = length(nElem_x);
 
@@ -103,6 +97,7 @@ for num = 1 : cn
         % k_ele = zeros(d_en, d_en);
         % f_ele = zeros(d_en,1);
         x_ele = zeros(n_en,1);
+        u_bc  = zeros(nLocBas,1);
 
         % New data structure: mapping local element information to global.
         
@@ -122,28 +117,26 @@ for num = 1 : cn
 
                 % LM,Location matrix, given a particular degree of freedom number and an element number,
                 % return the corresponding global number equation number.
-                AA = ID(IEN(aa,ee));
+                AA = ID( IEN(aa,ee) );
 
                 if( AA > 0 )
                     F(AA) = F(AA) + wq (qua) * Na * f_q(qp(qua));
                     for bb = 1: nLocBas
-                        BB = ID(IEN(bb,ee));
+                        BB = ID( IEN(bb,ee) );
                         if (BB > 0)
                             Nb_2x = Hermiteg_Basis(bb, 2, qp(qua), x_ele(1), x_ele(end));
                             K(AA,BB) = K(AA,BB) + wq(qua) * EI * Na_2x * Nb_2x;
                         else
                             % TO BE FILLED
+                            Nb_2x = Hermiteg_Basis(bb, 2, qp(qua), x_ele(1), x_ele(end));
                             %obtain the Dirichlet node's physical coordinates
-                            x_p_u = x_coor(ee) ;
+                            x_p_u = x_coor(ee+1) ;
                             % Obtain the boundary data at this point
 
-                            % esstential BC 1: Node Transverse displacement
-                            g_ubc  = g_f(x_p_u);
-                            % esstential BC 2: Node slope
-                            g_uxbc = dg_f(x_p_u);
-
-                            F( AA ) = F( AA ) - k_ele(aa, bb) * g_ubc; % ?
-                            F( AA ) = F( AA ) - k_ele(aa, bb) * g_uxbc; % ?
+                            % esstential BC 1: Node displacement; Node slope
+                            u_bc = [0; 0; u_g(x_p_u); u_x_g(x_p_u) ];
+                        
+                            F( AA ) = F( AA ) -  wq(qua) * EI * Na_2x * Nb_2x * u_bc(bb); % 
 
                         end
                     end
@@ -154,8 +147,8 @@ for num = 1 : cn
 
         % modified the load vector by natural BC
         if ee == 1
-            F(ID(IEN(1,ee))) =  F(ID(IEN(1,ee))) + dh_f(x_coor(ee));% prescribed shear force
-            F(ID(IEN(2,ee))) =  F(ID(IEN(2,ee))) + h_f(x_coor(ee));% prescribed Moment force
+            F(ID(IEN(1,ee))) =  F(ID(IEN(1,ee))) + Q_f(x_coor(ee));  % prescribed shear force
+            F(ID(IEN(2,ee))) =  F(ID(IEN(2,ee))) - M_f(x_coor(ee));  % prescribed Moment force
         end
         
     end
@@ -164,6 +157,8 @@ for num = 1 : cn
     %solve the stiffness matrix problem
 
     Uh = K \ F;
+    % Append the displacement vector by the Dirichlet data
+    Uh = [ Uh; u_g(x_p_u); u_x_g(x_p_u) ];
     %-------------------------------------------------------------------
     % displacement distribution
     uh_od    = Uh(1:2:nFunc);
