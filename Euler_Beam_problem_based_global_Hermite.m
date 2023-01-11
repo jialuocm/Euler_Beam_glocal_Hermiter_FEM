@@ -1,44 +1,49 @@
-% simulation the beam with Hermite polynomial
+
+% =========================================================================
+% This is the FEM Matlab main code for one-dimensional Bernulli-Euler beam.
+%
+% In this main, adopte the Hermite type basis function.
+%
+% -------------------------------------------------------------------------
+% By Jia Luo, 2023 Jan. 11th.
+% =========================================================================
 clear all; clc; close all;
 
 pi  = atan(1) * 4;
-nqp = 10; %quadrature rule
+nqp = 10;                        % Quadrature rule
 
-EI = 1 ; % bend module stiffness
-M  = 3 ; % Natual BC prescribed Moment
-Q  = -12 ; % Natual BC prescribed shear force
+EI = 1 ;                         % Bend module stiffness
+M  = 3 ;                         % Natual BC prescribed Moment
+Q  = -12 ;                       % Natual BC prescribed shear force
 
-omega_L = 0; % phsical length of beam
-omega_R = pi; % position length of beam
-LL = omega_R - omega_L; %  phsical length of beam
+omega_L = 0;                     % Phsical location of beam
+omega_R = pi;                    % Phsical location of beam
+LL = omega_R - omega_L;          % Phsical length of beam
 
-f_q = @(x) sin(x); %distribution body force
+f_q = @(x) sin(x);               % Distribution body force
 
-u_g = @(x) 0;   %essential BC transverse displacement
-u_x_g = @(x) 0; %essential BC derivative of disp slope;
+u_g = @(x) 0;                    % Essential BC transverse displacement
+u_x_g = @(x) 0;                  % Essential BC derivative of disp slope
 
-M_f = @(x) M / EI;% Natual BC prescribed Moment
-Q_f = @(x) Q / EI;% Natual BC prescribed shear force
-
-% exact solution
-
+M_f = @(x) M / EI;               % Natual BC prescribed Moment
+Q_f = @(x) Q / EI;               % Natual BC prescribed shear force
+%-------------------------------------------------------------------
+% Exact solution
 c1 = Q + 1.0;
 c2 = M;
 c3 = 1.0 - 0.5 * (Q + 1.0) * pi^2 - M * pi ;
 c4 = (Q + 1.0) * pi^3 / 3 - pi + 0.5 * M * pi^2;
 U_fx = @(x) (sin(x) + c1.*x.^3 / 6 + 0.5 * c2.*x.^2 + c3.*x + c4)./EI; % displacements
 
-U_d1x = @(x) (cos(x) + 0.5 * c1 * x.^2 + c2 * x + c3)./EI;%first derivative
-U_d2x = @(x) (-sin(x) + c1 .* x + c2) ./ EI;%second derivative
-U_d3x = @(x) (-cos(x) + c1)./EI;%third derivative
-
+U_d1x = @(x) (cos(x) + 0.5 * c1 * x.^2 + c2 * x + c3)./EI;            %first derivative
+U_d2x = @(x) (-sin(x) + c1 .* x + c2) ./ EI;                          %second derivative
 %-------------------------------------------------------------------
+
 
 nElem_x = 2 : 4 : 32;
 %nElem_x = 2;
 
 cn         = length(nElem_x);
-
 hh_x       = zeros(cn,1);
 error_l2_x = zeros(cn,1);
 error_h2_x = zeros(cn,1);
@@ -47,17 +52,17 @@ hh_lg   = zeros(cn,1);
 slop_l2 = zeros(cn,1);
 slop_h2 = zeros(cn,1);
 
-for num = 1 : cn
+for num = 1 : cn 
 
-    nElem   = nElem_x(num); %number of elements
-    n_en    = 2;      % node number of element
-    n_np    = nElem + 1;
-    d_node  = 2;      % node degree of freedom: displacements and slopes
-    d_en    = n_en*2; % element DOF
-    nLocBas = d_en;   % local Basis equal to DOF of element
-    nFunc   = nLocBas + d_node * (nElem-1);
+    nElem   = nElem_x(num);   % Number of elements
+    n_en    = 2;              % Node number of local element
+    n_np    = nElem + 1;      % Number nodes of elements
+    d_node  = 2;              % Node degree of freedom: displacements and slopes
+    d_en    = n_en*2;         % Element DOF
+    nLocBas = d_en;           % Local Basis equal to DOF of element
+    nFunc   = nLocBas + d_node * (nElem-1); % 
 
-    %assemble IEN
+    % Assemble IEN
     IEN  = zeros(d_en, nElem);
     for ee = 1 : nElem
         for aa = 1 : d_en
@@ -65,37 +70,31 @@ for num = 1 : cn
         end
     end
 
-    %mesh
+    % Mesh of geometric domain
     hh_x(num) = (omega_R - omega_L) / nElem;
+    x_coor    = omega_L : hh_x(num) : omega_R;
 
-    x_coor = omega_L : hh_x(num) : omega_R;
-
-    %setup ID array based on BC
-
+    % Setup ID array based on BC
     ID = 1 : nFunc;
-    % assign the ID for the Dirichlet node to be -1.
-    % the right of beam is fixed, transverse dis and slope equal = 0.
+    % Assign the ID for the Dirichlet node to be -1
     ID(end-1:end) = -1;
-   
-    n_eq = nFunc - 2;   % Dirichlet nodes is known
- 
-    %allocate an empty stiffness matrix and load vector
-    %     K = sparse(nFunc, nFunc);
-    %     F = zeros( nFunc, 1);
+    n_eq = nFunc - 2;  
+
+    % Allocate an empty stiffness matrix and load vector
     K = sparse(n_eq, n_eq);
     F = zeros(n_eq, 1);
 
     %-------------------------------------------------------------------
-    %Assembly the stiffness matrix and load vector
+    % Assembly the stiffness matrix and load vector
     for ee = 1 : nElem
-        %allocate zero element stiffness matrix and element load vector
+        % Allocate zero element stiffness matrix and element load vector
         x_ele = zeros(n_en,1);
         u_ebc  = zeros(nLocBas,1);
 
-        % New data structure: mapping local element information to global.
+        % New data structure: mapping local element information to global
 
         for aa = 1 : n_en
-            x_ele(aa) = x_coor(ee+aa-1) ; % physical geometrical position;
+            x_ele(aa) = x_coor(ee+aa-1) ; % Physical geometrical position
         end
 
         [qp, wq] = Gauss(nqp, x_ele(1), x_ele(end));
@@ -106,7 +105,7 @@ for num = 1 : cn
                 Na    = Hermiteg_Basis(aa, 0, qp(qua), x_ele(1), x_ele(end));
                 Na_x  = Hermiteg_Basis(aa, 1, qp(qua), x_ele(1), x_ele(end));
                 Na_2x = Hermiteg_Basis(aa, 2, qp(qua), x_ele(1), x_ele(end));
-                %calculate the global K matrix and force vector
+                % Calculate the global K matrix and force vector
 
                 % LM,Location matrix, given a particular degree of freedom number and an element number,
                 % return the corresponding global number equation number.
@@ -120,13 +119,13 @@ for num = 1 : cn
                             Nb_2x = Hermiteg_Basis(bb, 2, qp(qua), x_ele(1), x_ele(end));
                             K(AA,BB) = K(AA,BB) + wq(qua) * EI * Na_2x * Nb_2x;
                         else
-                            % TO BE FILLED
+                 
                             Nb_2x = Hermiteg_Basis(bb, 2, qp(qua), x_ele(1), x_ele(end));
-                            %obtain the Dirichlet node's physical coordinates
+                            % Obtain the Dirichlet node's physical coordinates
                             x_g_u = x_coor(ee+1) ;
-                            % Obtain the boundary data at this point
 
-                            % esstential BC: Node displacement; Node slope
+                            % Obtain the boundary data at this point
+                            % Esstential BC: Node displacement; Node slope
                             u_ebc = [0; 0; u_g(x_g_u); u_x_g(x_g_u) ];
 
                             F( AA ) = F( AA ) -  wq(qua) * EI * Na_2x * Nb_2x * u_ebc(bb); 
@@ -136,9 +135,9 @@ for num = 1 : cn
                 end
             end
 
-        end %End of quadrature loop
+        end % End of quadrature loop
 
-        % modified the load vector by natural BC
+        % Modified the load vector by natural BC
         if ee == 1
             F(ID(IEN(1,ee))) =  F(ID(IEN(1,ee))) + Q_f(x_coor(ee));  % prescribed shear force
             F(ID(IEN(2,ee))) =  F(ID(IEN(2,ee))) - M_f(x_coor(ee));  % prescribed Moment force
@@ -146,44 +145,43 @@ for num = 1 : cn
 
     end
 
-    %disp(K);disp(F);
-    %solve the stiffness matrix problem
+    % Solve the stiffness matrix problem
   
     Uh = K \ F;
     % Append the displacement vector by the Dirichlet data
     Uh = [ Uh; u_g(x_g_u); u_x_g(x_g_u) ];
     %-------------------------------------------------------------------
-    % displacement distribution
+    % Displacement distribution
     uh_od    = Uh(1:2:nFunc - 1);
     fai_even = Uh(2:2:nFunc);
 
-    figure
-    uhp = plot(x_coor,uh_od,'--r*','linewidth',2);
-    hold on
-    u_exact = U_fx(x_coor);
-    up = plot(x_coor, u_exact,'b--','LineWidth',2);
-
-    legend([uhp,up],'uh FEM','u Exact');
-    xlabel('x coor');
-    ylabel('u');
-    hold off
-    exportgraphics(gca,['file uh' '.jpg']);
+%     figure
+%     uhp = plot(x_coor,uh_od,'--r*','linewidth',2);
+%     hold on
+%     u_exact = U_fx(x_coor);
+%     up = plot(x_coor, u_exact,'b--','LineWidth',2);
+% 
+%     legend([uhp,up],'uh FEM','u Exact');
+%     xlabel('x coor');
+%     ylabel('u');
+%     hold off
+%     exportgraphics(gca,['file uh' '.jpg']);
 
     %-------------------------------------------------------------------
     % slope distribution
-    figure
-    faih_p = plot(x_coor,fai_even,'--r*','linewidth',2);
-
-    hold on
-    p_M_exact = plot(x_coor,U_d1x(x_coor),'b--','LineWidth',2);
-    legend([faih_p,p_M_exact],'\phi_h FEM','\phi_{Exact}');
-    xlabel('x coor');
-    ylabel('\phi ');
-    hold off
-    exportgraphics(gca,['file_fai' '.jpg']);
+%     figure
+%     faih_p = plot(x_coor,fai_even,'--r*','linewidth',2);
+% 
+%     hold on
+%     p_M_exact = plot(x_coor,U_d1x(x_coor),'b--','LineWidth',2);
+%     legend([faih_p,p_M_exact],'\phi_h FEM','\phi_{Exact}');
+%     xlabel('x coor');
+%     ylabel('\phi ');
+%     hold off
+%     exportgraphics(gca,['file_fai' '.jpg']);
 
     %-------------------------------------------------------------------
-    % error convergence analysis
+    % Error convergence analysis
     error_l2  = 0.0;
     error_H2  = 0.0;
 
@@ -234,8 +232,7 @@ for num = 1 : cn
 
     error_l2_x(num,1)  = log(error_l2);
     error_h2_x(num,1)  = log(error_H2);
-    hh_lg(num) = log(hh_x(num) / LL); % normlized the mesh length size
-
+    hh_lg(num) = log(hh_x(num) / LL); % Normlized the mesh length size
 
     dx_hh  = zeros( 2,1);
     dy_l2e = zeros( 2,1);
@@ -256,8 +253,8 @@ for num = 1 : cn
     end
 
 end
-
-
+%-------------------------------------------------------------------
+% Postprocessing
 figure
 yyaxis left
 error_h_l2 = plot(hh_lg,error_l2_x,'--rO','LineWidth',2);
@@ -283,6 +280,5 @@ T = table(hh_x,error_l2_x,error_h2_x,slop_l2,slop_h2,...
     'variableNames',{'hh_mesh','error_l2','error_H2',...
     'l2 convergence rate','H2 convergence rate'});
 writetable(T);
-T
 
 % END
