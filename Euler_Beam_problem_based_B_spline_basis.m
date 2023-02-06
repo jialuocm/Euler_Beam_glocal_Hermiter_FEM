@@ -1,15 +1,19 @@
 % =========================================================================
 % This is the FEM Matlab main code for one-dimensional Bernulli-Euler beam.
-%
 % In this main, adopte the B-spine basis function.
-%
+% Input:
+%   i: index of the basis function to compute (this value cannot be smaller
+%       than p+1);
+%   xi: value in which the basis function is being evaluated;
+%   pp: degree of the basis function;
+%   U: knot vector over which the basis function is being built.
+%   k: defined accordingly to the knot vector;
 % -------------------------------------------------------------------------
 % By Jia Luo, 2023 Jan. 11th.
 % =========================================================================
 clear all; clc; close all;
 
 pi  = atan(1) * 4;
-nqp = 10;                        % Quadrature rule
 
 EI = 1 ;                         % Bend module stiffness
 M  = 3 ;                         % Natual BC prescribed Moment
@@ -38,8 +42,8 @@ U_d1x = @(x) (cos(x) + 0.5 * c1 * x.^2 + c2 * x + c3)./EI;            %first der
 U_d2x = @(x) (-sin(x) + c1 .* x + c2) ./ EI;                          %second derivative
 %-------------------------------------------------------------------
 
-nElem_x = 2 : 4 : 32;
-%nElem_x = 2;
+nElem_x = 3 : 1 : 16;
+%nElem_x = 3;
 
 cn         = length(nElem_x);
 hh_x       = zeros(cn,1);
@@ -50,34 +54,78 @@ hh_lg   = zeros(cn,1);
 slop_l2 = zeros(cn,1);
 slop_h2 = zeros(cn,1);
 
-for num = 1 : cn 
 
+for num = 1 : cn 
     nElem   = nElem_x(num);   % Number of elements
-    n_en    = 2;              % Node number of local element
-    n_np    = nElem + 1;      % Number nodes of elements
-    d_node  = 2;              % Node degree of freedom: displacements and slopes
-    d_en    = n_en*2;         % Element DOF
-    nLocBas = d_en;           % Local Basis equal to DOF of element
-    nFunc   = nLocBas + d_node * (nElem-1); % 
+    hh_x(num) = (omega_R - omega_L) / nElem;
+%U  = [0,0,0,0,2,4,4,6,6,6,8,8,8,8].*pi/8; % representing mesh of problem;
+%U  = [0,0,0,0,1/3,2/3,1,1,1,1].*pi;
+pp = 3;
+k  = 2;
+nqp = pp + 1;  % Quadrature rule
+U = zeros(1,2*pp+ nElem + 1);
+U(1,end-pp:end) = omega_R;
+for ii = 1 : nElem - 1
+    U(pp+1+ii) = ii * hh_x(num);
+end
+disp(U);
+%x_coor = zeros(1,nElem+1);
+Index_u = length(U) ;
+N_i = 1;
+x_coor(N_i) = U(pp+1);
+for ii = pp+2 : Index_u
+    x_a = x_coor(N_i); x_b = U(ii);
+    if x_b > x_a
+        N_i = N_i+1;
+        x_coor(N_i) = x_b;
+    end
+end
+disp(x_coor);
+
+    n_np    = length(x_coor);     % Number of global node
+    nElem   = length(x_coor) - 1; % Number of elements
+
+    n_en    = 2;   % Number of local node of element
+    n_dof   = 2;   % Degree of freedom number per node, disp and slopes
+
+    nLocBas = n_en * n_dof; % Local equation number    
+    nFunc   = length(U)-pp-1; % n_bs: number of global basis functions;
 
     % Assemble IEN
-    IEN  = zeros(d_en, nElem);
+    IEN  = zeros(n_en, nElem);
     for ee = 1 : nElem
-        for aa = 1 : d_en
-            IEN (aa, ee) = (ee - 1) * d_node + aa;
+        for aa = 1 : n_en
+            IEN (aa, ee) = ee - 1 + aa;
         end
     end
-
+    disp(IEN);
     % Mesh of geometric domain
-    hh_x(num) = (omega_R - omega_L) / nElem;
-    x_coor    = omega_L : hh_x(num) : omega_R;
+    % hh_x(num) = (omega_R - omega_L) / nElem;
 
-    % Setup ID array based on BC
-    ID = 1 : nFunc;
+
+    % Setup ID array and modify the ID array based on BC
+      ID = zeros(n_dof,n_np);
+      for g_np = 1: n_np
+          for ii = 1 : n_dof
+              ID(ii,g_np) = (g_np-1) * n_dof + ii;
+          end
+      end
+      disp(ID);
     % Assign the ID for the Dirichlet node to be -1
-    ID(end-1:end) = -1;
-    n_eq = nFunc - 2;  
-
+    ID(:,n_np) = -1;
+    n_eq = n_np * n_dof - 2;  
+    % LM matrix    
+    LM = zeros(nLocBas,nElem);
+    for ee = 1 : nElem
+        for aa = 1 : n_en
+            A = IEN(aa,ee);
+            for ii = 1 : n_dof
+                n_eq_i = n_dof * (aa - 1) + ii;
+                LM(n_eq_i,ee) = ID(ii,A) ;
+            end
+        end
+    end
+    disp(LM);
     % Allocate an empty stiffness matrix and load vector
     K = sparse(n_eq, n_eq);
     F = zeros(n_eq, 1);
@@ -86,46 +134,36 @@ for num = 1 : cn
     % Assembly the stiffness matrix and load vector
     for ee = 1 : nElem
         % Allocate zero element stiffness matrix and element load vector
-        x_ele = zeros(n_en,1);
+        x_ele  = zeros(n_en,1);
         u_ebc  = zeros(nLocBas,1);
-
         % New data structure: mapping local element information to global
-
         for aa = 1 : n_en
-            x_ele(aa) = x_coor(ee+aa-1) ; % Physical geometrical position
+            x_ele(aa) = x_coor( IEN(aa,ee)) ; % Physical geometrical position
         end
-        %construct B-spline basis function
-        knot = [x_ele(1),x_ele(1),x_ele(1),0.5 * (x_ele(end) - x_ele(1)),x_ele(end),x_ele(end),x_ele(end)];
-        pp = 2;
-        n = length(knot)-p-1; % n: number of basis functions
-       
+           
         [qp, wq] = Gauss(nqp, x_ele(1), x_ele(end));
-
-      
+        % Find index of Pysical mesh in index space;
+        i_id  = FindSpan(pp,U,x_ele(1)); 
+       
         for qua = 1 : nqp
 
-            for aa = 1 : pp + 1 
-    
-                [Nip,dNip1,dNip2] = B_spline_basis(knot,pp,qp(qua));
-                Na    = Nip;
-                Na_x  = dNip1;
-                Na_2x = dNip2;
+             Ni_p_k = BsplineBasis_Ders(i_id, qp(qua), pp, U, k);
+            for aa = 1 : nLocBas                                   
+                Na    = Ni_p_k(1,aa);
+                Na_x  = Ni_p_k(2,aa);
+                Na_2x = Ni_p_k(3,aa);
                 % Calculate the global K matrix and force vector
-
-                % LM,Location matrix, given a particular degree of freedom number and an element number,
-                % return the corresponding global number equation number.
-                AA = ID( IEN(aa,ee) );
-
+                AA = LM(aa,ee);
                 if( AA > 0 )
                     F(AA) = F(AA) + wq (qua) * Na * f_q(qp(qua));
-                    for bb = 1: nLocBas
-                        BB = ID( IEN(bb,ee) );
+                    for bb = 1 : nLocBas
+                        BB = LM(bb,ee);
                         if (BB > 0)
-                            Nb_2x = Hermiteg_Basis(bb, 2, qp(qua), x_ele(1), x_ele(end));
+                            Nb_2x = Ni_p_k(3,bb);
                             K(AA,BB) = K(AA,BB) + wq(qua) * EI * Na_2x * Nb_2x;
                         else
                  
-                            Nb_2x = Hermiteg_Basis(bb, 2, qp(qua), x_ele(1), x_ele(end));
+                            Nb_2x = Ni_p_k(3,bb);
                             % Obtain the Dirichlet node's physical coordinates
                             x_g_u = x_coor(ee+1) ;
 
@@ -155,11 +193,17 @@ for num = 1 : cn
     Uh = K \ F;
     % Append the displacement vector by the Dirichlet data
     Uh = [ Uh; u_g(x_g_u); u_x_g(x_g_u) ];
-    %-------------------------------------------------------------------
-    % Displacement distribution
-    uh_od    = Uh(1:2:nFunc - 1);
-    fai_even = Uh(2:2:nFunc);
 
+% =========================================================================
+% Displacement distribution
+
+
+%     uh_od    = Uh(1:2:nFunc - 1);
+%     fai_even = Uh(2:2:nFunc);
+
+
+
+% =========================================================================
 %     figure
 %     uhp = plot(x_coor,uh_od,'--r*','linewidth',2);
 %     hold on
@@ -185,49 +229,62 @@ for num = 1 : cn
 %     hold off
 %     exportgraphics(gca,['file_fai' '.jpg']);
 
-    %-------------------------------------------------------------------
-    % Error convergence analysis
+% =========================================================================
+% Now to postprocessing, Error convergence analysis
+    nqp = 10 ;
     error_l2  = 0.0;
     error_H2  = 0.0;
 
-    jj=1;
+    N_i=1;
     M_h     = zeros(nElem*nqp,1);
     M_exact = zeros(nElem*nqp,1);
     x_m     = zeros(nElem*nqp,1);
     x_b     = zeros(nElem+1,1);
     U_h_p   = zeros(nElem*nqp,1);
 
-    for ee = 1: nElem
-        u_ele = zeros(nLocBas,1);
-        x_ele = zeros(n_en,1);
+      ID = zeros(n_dof,n_np);
+      for g_np = 1: n_np
+          for ii = 1 : n_dof
+              ID(ii,g_np) = (g_np-1) * n_dof + ii;
+          end
+      end
+      disp(ID);
 
-        for aa = 1 : nLocBas
-            u_ele(aa) = Uh(IEN(aa,ee));
-        end
+    for ee = 1: nElem      
+        x_ele = zeros(n_en,1);
+        d_ele = zeros(nLocBas,1);
 
         for aa = 1 : n_en
-            x_ele(aa) = x_coor(ee+aa-1) ;
+            x_ele(aa) = x_coor(IEN(aa,ee)) ;
+            for ii = 1 : n_dof
+                n_locBas_i = n_dof * (aa - 1) + ii;
+                d_ele(n_locBas_i) = Uh(ID(ii,IEN(aa,ee)));
+            end
         end
 
         [qp, wq] = Gauss(nqp, x_ele(1), x_ele(end));
+        % Find index of Pysical mesh in index space;
+        i_id  = FindSpan(pp,U,x_ele(1));
 
         for qua = 1 : nqp
+            U_h     = 0.0;
+            U_hdx2  = 0.0;
 
-            U_h    = 0.0;
-            u_dx2  = 0.0 ;
+            Ni_p_k = BsplineBasis_Ders(i_id, qp(qua), pp, U, k);
 
             for aa = 1 : nLocBas
+                Na     = Ni_p_k(1,aa);
+                Na_2x  = Ni_p_k(3,aa);
 
-                U_h    = U_h   + u_ele(aa) * Hermiteg_Basis(aa,0,qp(qua),x_ele(1),x_ele(end));
-                u_dx2  = u_dx2 + u_ele(aa) * Hermiteg_Basis(aa,2,qp(qua),x_ele(1),x_ele(end));
-
+                U_h    = U_h + d_ele(aa) * Na;
+                U_hdx2 = U_hdx2 + d_ele(aa) * Na_2x;
             end
 
             u_exact     = U_fx(qp(qua));
             u_dx2_exact = U_d2x(qp(qua));
 
             error_l2 = error_l2 + wq(qua) * (U_h - u_exact) * (U_h - u_exact);
-            error_H2 = error_H2 + wq(qua) * (u_dx2 - u_dx2_exact) * (u_dx2 - u_dx2_exact);
+            error_H2 = error_H2 + wq(qua) * (U_hdx2 - u_dx2_exact) * (U_hdx2 - u_dx2_exact);
 
         end
     end
@@ -258,12 +315,12 @@ for num = 1 : cn
     end
 
 end
-%-------------------------------------------------------------------
+% =========================================================================
 % Postprocessing
 figure
 yyaxis left
 error_h_l2 = plot(hh_lg,error_l2_x,'--rO','LineWidth',2);
-ylim([-18 -2]);
+%ylim([-18 -2]);
 
 legend(error_h_l2,'L_2 error convergence analysis');
 xlabel('log ||hh||/L ');
@@ -274,7 +331,7 @@ hold on;
 % figure
 yyaxis right
 error_h_H2 = plot(hh_lg,error_h2_x,'--b*','LineWidth',2);
-ylim([-18 -2]);
+%ylim([-18 -2]);
 
 legend('L_2 error convergence rate','H_2error convergence rate');
 xlabel('log ||hh||/L ');
@@ -284,6 +341,31 @@ exportgraphics(gca,['error_u_l2_h2' '.jpg']);
 T = table(hh_x,error_l2_x,error_h2_x,slop_l2,slop_h2,...
     'variableNames',{'hh_mesh','error_l2','error_H2',...
     'l2 convergence rate','H2 convergence rate'});
+T
 writetable(T);
 
+
+% =========================================================================
+function mid = FindSpan(p,U,xi)
+% returns the knot span index
+n = length(U)-p;
+if xi==U(end)
+    % special case
+    mid = n-1;
+    return
+end
+low = p;
+high = n;
+mid = floor((low+high)/2);
+while xi<U(mid) || xi>= U(mid+1)
+    if xi<U(mid)
+        high = mid;
+    else
+        low = mid;
+    end
+    mid = floor((low+high)/2);
+end
+
+end
+% =========================================================================+
 % END
