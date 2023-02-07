@@ -1,58 +1,22 @@
-% Compute the nonvanishing basis functions.
-% Input:
-%   i: index of the basis function to compute (this value cannot be smaller
-%       than p+1);
-%   xi: value in which the basis function is being evaluated;
-%   pp: degree of the basis function;
-%   U: knot vector over which the basis function is being built.
-%   k: defined accordingly to the knot vector;
-% Output:
-%   N: vector containing the value of all the nonvanishing basis functions:
-%   N(1)=N_{i-p},...,N(p+1)=N_{i}.
-%   ders: bidimensional matrix where the element in position
-%         (k,j) is the kth derivative of the function
-%         N_{i-p+j,p} with 0<=k<=n and 0<=j<=p.
 % =========================================================================
-%U  = [0,0,0,0,1,3,4,6,6,6,8,8,8,8];
-U  =  [0,0,0,0,1/3,2/3,1,1,1,1];
-pp = 3;
-k  = 3;
-%xi = 2.5;
-xi_vector = linspace(0,1,500);
-nm = length(xi_vector);
-M_data = zeros(pp+1,nm);
-Ders_data = zeros(pp+1,nm);
-
-for nn = 1:nm
-    xi = xi_vector(nn);
-    i  = FindSpan(pp,U,xi);
-    % Ni_p = Bspline_Basis(i,xi,pp,U);
-    Ni_p_k = Bspline_Basis_Ders(i,xi,pp,U,k);
-    % M_data(:,nn) = Ni_p;
-    M_data(:,nn) = Ni_p_k(1,:);
-    Ders_data(:,nn) = Ni_p_k(2,:);
-end
+% This is the shape function routine for one-dimensional finite element code
+%
+% In this function, adopte the Hermite type basis function.
+% Interior nodes are uniformly distributed in the reference domain.
+%
+% degree: the interpolation basis function is a cubic polynomial, degree three.
+% ii    : the number of the basis function. i takes value from 1 to degree+1.
+% der   : if der == 0, return the value of the basis function;
+%         if der == 1, return the 1st derivative of the basis function;
+%         if der == 2, return the 2nd derivative of the basis funciton.
+% xa,xb : the point we which to perform the evaluation.
+%
+% Output: the value of the basis function or the 1st and 2nd derivatives of
+%         the basis function.
+% -------------------------------------------------------------------------
+% By Jia Luo, 2023 Jan. 5th.
 % =========================================================================
-%Postprocessing:plotting to check validation of basis and deriv of functions;
-close all;
-
-plot(xi_vector,M_data(1,:),'-r','LineWidth',2);
-hold on;
-plot(xi_vector,M_data(2,:),'-b','LineWidth',2);
-plot(xi_vector,M_data(3,:),'-k','LineWidth',2);
-plot(xi_vector,M_data(4,:),'-g','LineWidth',2);
-hold off;
-
-figure
-hold on;
-plot(xi_vector,Ders_data(1,:),'-r','LineWidth',2);
-plot(xi_vector,Ders_data(2,:),'-b','LineWidth',2);
-plot(xi_vector,Ders_data(3,:),'-k','LineWidth',2);
-plot(xi_vector,Ders_data(4,:),'-g','LineWidth',2);
-hold off;
-% =========================================================================
-
-function ders = Bspline_Basis_Ders(i, xi, p, U,n)
+function ders = BsplineBasis_Ders(i, xi, p, U, n)
 % Preallocation.
 left = zeros(p+1, 1);
 right = zeros(p+1, 1);
@@ -127,28 +91,3 @@ for k = 1 : n
 end
 
 end
-
-% =========================================================================
-function mid = FindSpan(p,U,xi)
-% returns the knot span index
-n = length(U)-p;
-if xi==U(end)
-    % special case
-    mid = n-1;
-    return
-end
-low = p;
-high = n;
-mid = floor((low+high)/2);
-while xi<U(mid) || xi>= U(mid+1)
-    if xi<U(mid)
-        high = mid;
-    else
-        low = mid;
-    end
-    mid = floor((low+high)/2);
-end
-
-end
-% =========================================================================
-%END
