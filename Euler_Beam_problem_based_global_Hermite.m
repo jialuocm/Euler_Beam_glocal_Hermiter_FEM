@@ -1,7 +1,7 @@
 % =========================================================================
 % This is the FEM Matlab main code for one-dimensional Bernulli-Euler beam.
 %
-% In this main, adopte the B-spine basis function.
+% In this main, adopte the Hermite type basis function.
 %
 % -------------------------------------------------------------------------
 % By Jia Luo, 2023 Jan. 11th.
@@ -11,9 +11,9 @@ clear all; clc; close all;
 pi  = atan(1) * 4;
 nqp = 10;                        % Quadrature rule
 
-EI = 1 ;                         % Bend module stiffness
-M  = 3 ;                         % Natual BC prescribed Moment
-Q  = -12 ;                       % Natual BC prescribed shear force
+EI = 0.5 ;                         % Bend module stiffness
+M  = 0 ;                         % Natual BC prescribed Moment
+Q  = 0 ;                       % Natual BC prescribed shear force
 
 omega_L = 0;                     % Phsical location of beam
 omega_R = pi;                    % Phsical location of beam
@@ -38,16 +38,19 @@ U_d1x = @(x) (cos(x) + 0.5 * c1 * x.^2 + c2 * x + c3)./EI;            %first der
 U_d2x = @(x) (-sin(x) + c1 .* x + c2) ./ EI;                          %second derivative
 %-------------------------------------------------------------------
 
-nElem_x = 2 : 4 : 32;
+
+nElem_x = 3 : 1 : 9;
 %nElem_x = 2;
 
 cn         = length(nElem_x);
 hh_x       = zeros(cn,1);
 error_l2_x = zeros(cn,1);
+error_h1_x = zeros(cn,1);
 error_h2_x = zeros(cn,1);
 
 hh_lg   = zeros(cn,1);
 slop_l2 = zeros(cn,1);
+slop_h1 = zeros(cn,1);
 slop_h2 = zeros(cn,1);
 
 for num = 1 : cn 
@@ -94,22 +97,15 @@ for num = 1 : cn
         for aa = 1 : n_en
             x_ele(aa) = x_coor(ee+aa-1) ; % Physical geometrical position
         end
-        %construct B-spline basis function
-        knot = [x_ele(1),x_ele(1),x_ele(1),0.5 * (x_ele(end) - x_ele(1)),x_ele(end),x_ele(end),x_ele(end)];
-        pp = 2;
-        n = length(knot)-p-1; % n: number of basis functions
-       
+
         [qp, wq] = Gauss(nqp, x_ele(1), x_ele(end));
 
-      
         for qua = 1 : nqp
 
-            for aa = 1 : pp + 1 
-    
-                [Nip,dNip1,dNip2] = B_spline_basis(knot,pp,qp(qua));
-                Na    = Nip;
-                Na_x  = dNip1;
-                Na_2x = dNip2;
+            for aa = 1 : nLocBas
+                Na    = Hermiteg_Basis(aa, 0, qp(qua), x_ele(1), x_ele(end));
+                Na_x  = Hermiteg_Basis(aa, 1, qp(qua), x_ele(1), x_ele(end));
+                Na_2x = Hermiteg_Basis(aa, 2, qp(qua), x_ele(1), x_ele(end));
                 % Calculate the global K matrix and force vector
 
                 % LM,Location matrix, given a particular degree of freedom number and an element number,
@@ -160,34 +156,35 @@ for num = 1 : cn
     uh_od    = Uh(1:2:nFunc - 1);
     fai_even = Uh(2:2:nFunc);
 
-%     figure
-%     uhp = plot(x_coor,uh_od,'--r*','linewidth',2);
-%     hold on
-%     u_exact = U_fx(x_coor);
-%     up = plot(x_coor, u_exact,'b--','LineWidth',2);
-% 
-%     legend([uhp,up],'uh FEM','u Exact');
-%     xlabel('x coor');
-%     ylabel('u');
-%     hold off
-%     exportgraphics(gca,['file uh' '.jpg']);
+    figure
+    uhp = plot(x_coor,uh_od,'--r*','linewidth',2);
+    hold on
+    u_exact = U_fx(x_coor);
+    up = plot(x_coor, u_exact,'b--','LineWidth',2);
+
+    legend([uhp,up],'uh FEM','u Exact');
+    xlabel('x coor');
+    ylabel('u');
+    hold off
+    exportgraphics(gca,['file uh' '.jpg']);
 
     %-------------------------------------------------------------------
     % slope distribution
-%     figure
-%     faih_p = plot(x_coor,fai_even,'--r*','linewidth',2);
-% 
-%     hold on
-%     p_M_exact = plot(x_coor,U_d1x(x_coor),'b--','LineWidth',2);
-%     legend([faih_p,p_M_exact],'\phi_h FEM','\phi_{Exact}');
-%     xlabel('x coor');
-%     ylabel('\phi ');
-%     hold off
+    figure
+    faih_p = plot(x_coor,fai_even,'--r*','linewidth',2);
+
+    hold on
+    p_M_exact = plot(x_coor,U_d1x(x_coor),'b--','LineWidth',2);
+    legend([faih_p,p_M_exact],'\phi_h FEM','\phi_{Exact}');
+    xlabel('x coor');
+    ylabel('\phi ');
+    hold off
 %     exportgraphics(gca,['file_fai' '.jpg']);
 
     %-------------------------------------------------------------------
     % Error convergence analysis
     error_l2  = 0.0;
+    error_H1  = 0.0;
     error_H2  = 0.0;
 
     jj=1;
@@ -214,46 +211,57 @@ for num = 1 : cn
         for qua = 1 : nqp
 
             U_h    = 0.0;
-            u_dx2  = 0.0 ;
+            u_hdx1  = 0.0 ;
+            u_hdx2  = 0.0 ;
 
             for aa = 1 : nLocBas
 
                 U_h    = U_h   + u_ele(aa) * Hermiteg_Basis(aa,0,qp(qua),x_ele(1),x_ele(end));
-                u_dx2  = u_dx2 + u_ele(aa) * Hermiteg_Basis(aa,2,qp(qua),x_ele(1),x_ele(end));
+                u_hdx1  = u_hdx1 + u_ele(aa) * Hermiteg_Basis(aa,1,qp(qua),x_ele(1),x_ele(end));
+                u_hdx2  = u_hdx2 + u_ele(aa) * Hermiteg_Basis(aa,2,qp(qua),x_ele(1),x_ele(end));
 
             end
 
             u_exact     = U_fx(qp(qua));
+            u_dx1_exact = U_d1x(qp(qua));
             u_dx2_exact = U_d2x(qp(qua));
 
             error_l2 = error_l2 + wq(qua) * (U_h - u_exact) * (U_h - u_exact);
-            error_H2 = error_H2 + wq(qua) * (u_dx2 - u_dx2_exact) * (u_dx2 - u_dx2_exact);
+            error_H1 = error_H1 + wq(qua) * (u_hdx1 - u_dx1_exact) * (u_hdx1 - u_dx1_exact);
+
+            error_H2 = error_H2 + wq(qua) * (u_hdx2 - u_dx2_exact) * (u_hdx2 - u_dx2_exact);
 
         end
     end
 
     error_l2 = sqrt(error_l2);
+    error_H1 = sqrt(error_H1);
     error_H2 = sqrt(error_H2);
 
     error_l2_x(num,1)  = log(error_l2);
+    error_h1_x(num,1)  = log(error_H1);
     error_h2_x(num,1)  = log(error_H2);
     hh_lg(num) = log(hh_x(num) / LL); % Normlized the mesh length size
 
-    dx_hh  = zeros( 2,1);
-    dy_l2e = zeros( 2,1);
-    dy_h2e = zeros( 2,1);
+    dx_hh   = zeros( 2,1);
+    e_dy_l2 = zeros( 2,1);
+    e_dy_H1 = zeros( 2,1);
+    e_dy_H2 = zeros( 2,1);
     if (num >= 2)
         dx_hh = [hh_lg(num);hh_lg(num-1)];
 
-        dy_l2e = [error_l2_x(num);error_l2_x(num-1)];
-        dy_h2e = [error_h2_x(num);error_h2_x(num-1)];
+        e_dy_l2 = [error_l2_x(num);error_l2_x(num-1)];
+        e_dy_H1= [error_h1_x(num);error_h1_x(num-1)];
+        e_dy_H2 = [error_h2_x(num);error_h2_x(num-1)];
 
-        slop_l2(num) = (dy_l2e(2) - dy_l2e(1)) / (dx_hh(2)-dx_hh(1));
-        slop_h2(num) = (dy_h2e(2) - dy_h2e(1)) / (dx_hh(2)-dx_hh(1));
+        slop_l2(num) = (e_dy_l2(2) - e_dy_l2(1)) / (dx_hh(2)-dx_hh(1));
+        slop_h1(num) = (e_dy_H1(2) - e_dy_H1(1)) / (dx_hh(2)-dx_hh(1));
+        slop_h2(num) = (e_dy_H2(2) - e_dy_H2(1)) / (dx_hh(2)-dx_hh(1));
 
     else
 
         slop_l2(num) = 0;
+        slop_h1(num) = 0;
         slop_h2(num) = 0;
     end
 
@@ -281,9 +289,10 @@ xlabel('log ||hh||/L ');
 ylabel('log ||e||_{H2} ');
 exportgraphics(gca,['error_u_l2_h2' '.jpg']);
 
-T = table(hh_x,error_l2_x,error_h2_x,slop_l2,slop_h2,...
-    'variableNames',{'hh_mesh','error_l2','error_H2',...
-    'l2 convergence rate','H2 convergence rate'});
+T = table(hh_x,error_l2_x,error_h1_x,error_h2_x,slop_l2,slop_h1,slop_h2,...
+    'variableNames',{'hh_mesh','error_l2','error_H1','error_H2',...
+    'l2 convergence rate','H1 convergence rate','H2 convergence rate'});
 writetable(T);
+disp(T);
 
 % END
